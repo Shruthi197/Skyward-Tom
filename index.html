@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Flappy Tom</title>
+    <style>
+        canvas {
+            display: block;
+            margin: 0 auto;
+            background-color: #70c5ce; /* Sky blue background */
+        }
+        #scoreContainer {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 20px;
+            color: black;
+            margin-top: 10px;
+        }
+        .icon {
+            width: 20px;
+            height: 20px;
+            margin-right: 5px;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="flappyTom" width="320" height="480"></canvas>
+    <div id="scoreContainer"></div>
+        <img src="https://img.icons8.com/ios-filled/50/000000/star.png" class="icon" alt="Star Icon"/> 
+        <span id="highestScore">Highest Score: 0</span>
+    </div>
+    <script>
+        const canvas = document.getElementById('flappyTom');
+        const ctx = canvas.getContext('2d');
+
+        // Game variables
+        let tom = { 
+            x: 50, 
+            y: 150, 
+            width: 30, // Increased width for the animal character
+            height: 30, // Increased height for the animal character
+            gravity: 0.3,   
+            lift: -8,       
+            velocity: 0 
+        };
+
+        let pipes = [];
+        let pipeWidth = 40;
+        let pipeGap = 160;  
+        let pipeInterval = 120;
+        let frameCount = 0;
+        let score = 0;
+        let highestScore = 0; // Variable for highest score
+        let pipeSpeed = 2; 
+        let gameOver = false;
+        let isPaused = false; // Pause state
+
+        // Function to create a new pipe
+        function createPipe() {
+            let topHeight = Math.floor(Math.random() * (canvas.height - pipeGap - 50)) + 50;
+            let bottomHeight = canvas.height - (topHeight + pipeGap);
+            pipes.push({
+                x: canvas.width,  
+                topHeight: topHeight,
+                bottomHeight: bottomHeight,
+                width: pipeWidth,
+                passed: false
+            });
+        }
+
+        // Reset game state
+        function resetGame() {
+            tom.y = 150;
+            tom.velocity = 0;
+            pipes = [];
+            score = 0;
+            frameCount = 0;
+            gameOver = false;
+            isPaused = false; // Reset pause state
+            createPipe();  
+        }
+
+        // Draw Tom (Cute animal character)
+        function drawTom() {
+            // Drawing a simple bird character
+            ctx.fillStyle = 'yellow'; // Color for the bird
+            ctx.beginPath();
+            ctx.arc(tom.x + tom.width / 2, tom.y + tom.height / 2, tom.width / 2, 0, Math.PI * 2); // Bird body
+            ctx.fill();
+            ctx.fillStyle = 'black'; // Eye color
+            ctx.beginPath();
+            ctx.arc(tom.x + tom.width / 2 - 10, tom.y + tom.height / 2 - 5, 5, 0, Math.PI * 2); // Left eye
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(tom.x + tom.width / 2 + 10, tom.y + tom.height / 2 - 5, 5, 0, Math.PI * 2); // Right eye
+            ctx.fill();
+        }
+
+        // Update Tom's position
+        function updateTom() {
+            tom.velocity += tom.gravity;
+            tom.y += tom.velocity;
+
+            // Prevent Tom from falling below the canvas or flying off the top
+            if (tom.y > canvas.height - tom.height) {
+                tom.y = canvas.height - tom.height;
+                tom.velocity = 0;
+            }
+
+            if (tom.y < 0) {
+                tom.y = 0;
+                tom.velocity = 0;
+            }
+        }
+
+        // Draw background (grass and clouds)
+        function drawBackground() {
+            // Draw grass
+            ctx.fillStyle = '#3d9f5c'; // Grass color
+            ctx.fillRect(0, canvas.height - 50, canvas.width, 50); // Grass at bottom
+            
+            // Draw flowers
+            ctx.fillStyle = 'pink';
+            ctx.beginPath();
+            ctx.arc(30, canvas.height - 30, 5, 0, Math.PI * 2); // Flower 1
+            ctx.fill();
+            ctx.fillStyle = 'yellow';
+            ctx.beginPath();
+            ctx.arc(70, canvas.height - 40, 5, 0, Math.PI * 2); // Flower 2
+            ctx.fill();
+
+            // Draw clouds
+            ctx.fillStyle = '#ffffff'; // Cloud color
+            ctx.beginPath();
+            ctx.arc(50, 50, 20, 0, Math.PI * 2); // Cloud 1
+            ctx.arc(80, 50, 25, 0, Math.PI * 2); // Cloud 2
+            ctx.arc(30, 60, 20, 0, Math.PI * 2); // Cloud 3
+            ctx.fill();
+        }
+
+        // Draw pipes
+        function drawPipes() {
+            ctx.fillStyle = 'green';
+
+            pipes.forEach(pipe => {
+                // Top pipe
+                ctx.fillRect(pipe.x, 0, pipe.width, pipe.topHeight);
+
+                // Bottom pipe
+                ctx.fillRect(pipe.x, canvas.height - pipe.bottomHeight, pipe.width, pipe.bottomHeight);
+            });
+        }
+
+        // Update pipes' positions and create new pipes
+        function updatePipes() {
+            pipes.forEach(pipe => {
+                pipe.x -= pipeSpeed; 
+
+                // Check if Tom passes the pipe (increment score)
+                if (!pipe.passed && pipe.x + pipe.width < tom.x) {
+                    score++;
+                    pipe.passed = true;
+                }
+            });
+
+            // Remove pipes that go off-screen
+            pipes = pipes.filter(pipe => pipe.x + pipe.width > 0);
+
+            // Add new pipes
+            if (frameCount % pipeInterval === 0) {
+                createPipe();
+            }
+        }
+
+        // Debugging collision detection
+        function checkCollision() {
+            pipes.forEach(pipe => {
+                // First, check if Tom is horizontally within the pipe's range
+                if (tom.x + tom.width > pipe.x && tom.x < pipe.x + pipe.width) {
+                    // Now check if Tom is vertically touching either the top or bottom pipe
+                    let isTouchingTopPipe = tom.y < pipe.topHeight;
+                    let isTouchingBottomPipe = tom.y + tom.height > canvas.height - pipe.bottomHeight;
+
+                    // Game Over only if Tom actually touches the top or bottom pipe
+                    if (isTouchingTopPipe || isTouchingBottomPipe) {
+                        console.log('Collision Detected!');
+                        gameOver = true;
+                        alert("Game Over! Your score: " + score);
+                        resetGame();
+                    }
+                }
+            });
+        }
+
+        // Handle user input (space to jump and P to pause)
+        document.addEventListener('keydown', function(event) {
+            if (event.code === 'Space' && !gameOver && !isPaused) {
+                tom.velocity = tom.lift;
+            }
+            if (event.code === 'KeyP') {
+                isPaused = !isPaused; // Toggle pause state
+            }
+        });
+
+        // Display score
+        function drawScore() {
+            ctx.fillStyle = 'black';
+            ctx.font = '20px Arial';
+            ctx.fillText("Score: " + score, 10, 20);
+        }
+
+        // Game loop
+        function gameLoop() {
+            if (!gameOver && !isPaused) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                drawBackground();  // Draw the static background (grass and clouds)
+
+                drawTom();         
+                updateTom();       
+
+                drawPipes();       
+                updatePipes();     
+
+                checkCollision();  
+                drawScore();       
+
+                frameCount++;      
+            }
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Start the game
+        resetGame(); 
+        gameLoop();   
+    </script>
+</body>
+</html>
